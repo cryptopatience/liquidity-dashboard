@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유동성 모니터링 대시보드 선택</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 50px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #2a5298;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        p {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-link {
+            display: block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .dashboard-link:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .dashboard-link h2 {
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .dashboard-link p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+
+        .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+
+        .instructions {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+
+        .instructions h3 {
+            margin-bottom: 10px;
+            color: #0c5460;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏦 유동성 모니터링 대시보드</h1>
+        <p>실시간 연준 유동성 지표 분석 시스템</p>
+
+        <a href="liquidity_dashboard_v2.html" class="dashboard-link">
+            <h2>📊 대시보드 v2 (추천)</h2>
+            <p>FRED API 실시간 연동 + 데모 모드</p>
+            <span class="badge">✨ 최신 버전</span>
+            <span class="badge">🔧 CORS 해결</span>
+        </a>
+
+        <a href="liquidity_realtime.html" class="dashboard-link">
+            <h2>📈 실시간 대시보드 v1</h2>
+            <p>FRED API 기본 연동 버전</p>
+            <span class="badge">⚡ 빠른 로딩</span>
+        </a>
+
+        <a href="liquidity_dashboard.html" class="dashboard-link">
+            <h2>🎨 시뮬레이션 대시보드</h2>
+            <p>API 불필요 - 즉시 체험 가능</p>
+            <span class="badge">🚀 API 키 불필요</span>
+        </a>
+
+        <div class="instructions">
+            <h3>💡 사용 가이드</h3>
+            <ol>
+                <li><strong>v2 (추천):</strong> FRED API 키 입력 또는 데모 모드 사용</li>
+                <li><strong>v1:</strong> FRED API 키 필요 (실시간 데이터)</li>
+                <li><strong>시뮬레이션:</strong> API 없이 즉시 체험</li>
+            </ol>
+            <p style="margin-top: 15px; text-align: left;">
+                <strong>API 키 발급:</strong><br>
+                → <a href="https://fredaccount.stlouisfed.org/apikeys" target="_blank" style="color: #0c5460;">FRED API Keys</a> (무료, 5분 소요)
+            </p>
+        </div>
+    </div>
+</body>
+</html>

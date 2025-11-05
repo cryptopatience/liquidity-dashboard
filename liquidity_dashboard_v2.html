@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유동성 스트레스 모니터링 대시보드 v2</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .api-setup {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px;
+        }
+
+        .api-setup h3 {
+            color: #856404;
+            margin-bottom: 10px;
+        }
+
+        .api-setup input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ffc107;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+
+        .api-setup button {
+            background: #ffc107;
+            color: #856404;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .api-setup button:hover {
+            background: #e0a800;
+        }
+
+        .method-selector {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+
+        .method-selector label {
+            margin-right: 15px;
+            color: #0c5460;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 30px;
+        }
+
+        .status-panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+
+        .status-panel h2 {
+            color: #2a5298;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateX(5px);
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #2a5298;
+        }
+
+        .metric-date {
+            font-size: 0.8em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .metric-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 8px;
+            font-weight: 600;
+        }
+
+        .status-normal { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-danger { background: #f8d7da; color: #721c24; }
+        .status-critical { background: #dc3545; color: white; }
+
+        .chat-container {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+
+        .chat-box {
+            background: white;
+            border-radius: 10px;
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 18px;
+            border-radius: 15px;
+            max-width: 80%;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.bot {
+            background: #e9ecef;
+            color: #333;
+        }
+
+        .message.bot strong {
+            color: #2a5298;
+        }
+
+        .quick-questions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quick-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+
+        .quick-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .input-group button:hover {
+            transform: scale(1.05);
+        }
+
+        .chart-container {
+            grid-column: 1 / -1;
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+            height: 500px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .alert-banner {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px;
+            border: 2px solid #f5c6cb;
+        }
+
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px;
+            border: 2px solid #c3e6cb;
+        }
+
+        .instructions {
+            background: #d1ecf1;
+            color: #0c5460;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏦 연준 유동성 스트레스 모니터링</h1>
+            <p>실시간 RP/RRP/지준금/SOFR-IORB 스프레드 분석 (FRED API 연동 v2)</p>
+        </div>
+
+        <div class="api-setup" id="apiSetup">
+            <h3>⚙️ FRED API 설정</h3>
+            <div class="instructions">
+                <strong>💡 CORS 오류 해결 방법:</strong><br>
+                <strong>방법 1:</strong> CORS 프록시 사용 (자동 설정됨)<br>
+                <strong>방법 2:</strong> 브라우저에서 파일을 직접 열지 말고 로컬 서버로 실행<br>
+                <strong>방법 3:</strong> 데모 모드 사용 (API 키 불필요)
+            </div>
+
+            <div class="method-selector">
+                <label>
+                    <input type="radio" name="fetchMethod" value="direct" checked> 
+                    직접 연결 (가장 빠름)
+                </label>
+                <label>
+                    <input type="radio" name="fetchMethod" value="cors-anywhere"> 
+                    CORS Anywhere 프록시
+                </label>
+                <label>
+                    <input type="radio" name="fetchMethod" value="allorigins"> 
+                    AllOrigins 프록시
+                </label>
+            </div>
+
+            <input type="text" id="apiKeyInput" placeholder="FRED API 키: f1137018f7bb4b4150a5c84e09fc7fc2" value="f1137018f7bb4b4150a5c84e09fc7fc2">
+            <button onclick="loadData()">🔄 데이터 로드</button>
+            <button onclick="useDemoMode()" style="background: #6c757d;">📊 데모 모드</button>
+        </div>
+
+        <div id="errorDisplay"></div>
+
+        <div class="main-content">
+            <!-- 실시간 지표 패널 -->
+            <div class="status-panel">
+                <h2>📊 실시간 핵심 지표</h2>
+                <div id="metricsDisplay">
+                    <div class="loading">API 키를 입력하고 데이터를 로드하세요</div>
+                </div>
+            </div>
+
+            <!-- 종합 상태 패널 -->
+            <div class="status-panel">
+                <h2>🎯 유동성 상태 분석</h2>
+                <div id="statusDisplay">
+                    <div class="loading">데이터 대기 중...</div>
+                </div>
+            </div>
+
+            <!-- 차트 -->
+            <div class="chart-container">
+                <canvas id="liquidityChart"></canvas>
+            </div>
+
+            <!-- 챗봇 -->
+            <div class="chat-container">
+                <h2 style="color: #2a5298; margin-bottom: 20px;">💬 유동성 분석 AI 어시스턴트</h2>
+                
+                <div class="quick-questions">
+                    <button class="quick-btn" onclick="askQuestion('현재 유동성 상태는?')">현재 유동성 상태는?</button>
+                    <button class="quick-btn" onclick="askQuestion('RRP가 낮으면 위험한가?')">RRP가 낮으면 위험한가?</button>
+                    <button class="quick-btn" onclick="askQuestion('스프레드가 의미하는 것은?')">스프레드 의미는?</button>
+                    <button class="quick-btn" onclick="askQuestion('위기 신호는?')">위기 신호는?</button>
+                </div>
+
+                <div class="chat-box" id="chatBox">
+                    <div class="message bot">
+                        안녕하세요! 연준 유동성 분석 AI입니다. 궁금하신 점을 물어보세요. 🤖
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <input type="text" id="userInput" placeholder="질문을 입력하세요..." 
+                           onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button onclick="sendMessage()">전송</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 데이터 저장소
+        let liquidityData = {
+            rp: null,
+            rrp: null,
+            reserves: null,
+            sofr: null,
+            iorb: null,
+            spread: null,
+            dates: {
+                rp: null,
+                rrp: null,
+                reserves: null,
+                sofr: null,
+                iorb: null
+            },
+            history: {
+                dates: [],
+                rp: [],
+                rrp: [],
+                spread: []
+            }
+        };
+
+        let chart = null;
+        let apiKey = null;
+        let demoMode = false;
+
+        // CORS 프록시 옵션
+        const CORS_PROXIES = {
+            'direct': '',
+            'cors-anywhere': 'https://cors-anywhere.herokuapp.com/',
+            'allorigins': 'https://api.allorigins.win/raw?url='
+        };
+
+        function getSelectedProxy() {
+            const selected = document.querySelector('input[name="fetchMethod"]:checked').value;
+            return CORS_PROXIES[selected];
+        }
+
+        // FRED API에서 데이터 가져오기
+        async function fetchFREDSeries(seriesId) {
+            if (demoMode) {
+                return generateDemoData(seriesId);
+            }
+
+            if (!apiKey) {
+                throw new Error('API 키가 필요합니다');
+            }
+
+            const baseUrl = `https://api.stlouisfed.org/fred/series/observations`;
+            const params = new URLSearchParams({
+                series_id: seriesId,
+                api_key: apiKey,
+                file_type: 'json',
+                sort_order: 'desc',
+                limit: 100
+            });
+
+            const url = `${baseUrl}?${params}`;
+            const proxy = getSelectedProxy();
+            const fetchUrl = proxy ? `${proxy}${encodeURIComponent(url)}` : url;
+
+            console.log(`Fetching ${seriesId} from:`, fetchUrl);
+
+            try {
+                const response = await fetch(fetchUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                if (!data.observations) {
+                    throw new Error('Invalid API response');
+                }
+
+                return data.observations;
+            } catch (error) {
+                console.error(`Error fetching ${seriesId}:`, error);
+                throw error;
+            }
+        }
+
+        // 데모 데이터 생성
+        function generateDemoData(seriesId) {
+            const now = new Date();
+            const observations = [];
+            
+            for (let i = 99; i >= 0; i--) {
+                const date = new Date(now);
+                date.setDate(date.getDate() - i);
+                const dateStr = date.toISOString().split('T')[0];
+                
+                let value;
+                switch(seriesId) {
+                    case 'RPONTSYD':
+                        value = (3.4 + Math.random() * 5).toFixed(3);
+                        break;
+                    case 'RRPONTSYD':
+                        value = (250 + Math.random() * 100).toFixed(3);
+                        break;
+                    case 'WRESBAL':
+                        value = (3400 + Math.random() * 200).toFixed(3);
+                        break;
+                    case 'SOFR':
+                        value = (5.30 + Math.random() * 0.1).toFixed(4);
+                        break;
+                    case 'IORB':
+                        value = (5.15).toFixed(4);
+                        break;
+                }
+                
+                observations.push({
+                    date: dateStr,
+                    value: value
+                });
+            }
+            
+            return observations;
+        }
+
+        // 최신 값 가져오기
+        function getLatestValue(observations) {
+            if (!observations || observations.length === 0) return null;
+            
+            for (let i = 0; i < observations.length; i++) {
+                if (observations[i].value !== '.') {
+                    return {
+                        value: parseFloat(observations[i].value),
+                        date: observations[i].date
+                    };
+                }
+            }
+            return null;
+        }
+
+        // 전체 데이터 로드
+        async function loadData() {
+            const apiKeyInput = document.getElementById('apiKeyInput').value.trim();
+            
+            if (!apiKeyInput && !demoMode) {
+                showError('API 키를 입력해주세요');
+                return;
+            }
+
+            apiKey = apiKeyInput;
+            clearMessages();
+            document.getElementById('metricsDisplay').innerHTML = '<div class="loading">⏳ 데이터 로딩 중...</div>';
+            document.getElementById('statusDisplay').innerHTML = '<div class="loading">⏳ 분석 중...</div>';
+
+            try {
+                addMessage('🔄 FRED API에서 데이터를 가져오는 중...', 'bot');
+
+                // 병렬로 모든 데이터 가져오기
+                const [rpData, rrpData, reservesData, sofrData, iorbData] = await Promise.all([
+                    fetchFREDSeries('RPONTSYD'),
+                    fetchFREDSeries('RRPONTSYD'),
+                    fetchFREDSeries('WRESBAL'),
+                    fetchFREDSeries('SOFR'),
+                    fetchFREDSeries('IORB')
+                ]);
+
+                // 최신 값 추출
+                const rp = getLatestValue(rpData);
+                const rrp = getLatestValue(rrpData);
+                const reserves = getLatestValue(reservesData);
+                const sofr = getLatestValue(sofrData);
+                const iorb = getLatestValue(iorbData);
+
+                if (!rp || !rrp || !reserves || !sofr || !iorb) {
+                    throw new Error('데이터를 가져올 수 없습니다');
+                }
+
+                liquidityData.rp = rp.value;
+                liquidityData.rrp = rrp.value;
+                liquidityData.reserves = reserves.value;
+                liquidityData.sofr = sofr.value;
+                liquidityData.iorb = iorb.value;
+                liquidityData.spread = (sofr.value - iorb.value) * 100;
+
+                liquidityData.dates.rp = rp.date;
+                liquidityData.dates.rrp = rrp.date;
+                liquidityData.dates.reserves = reserves.date;
+                liquidityData.dates.sofr = sofr.date;
+                liquidityData.dates.iorb = iorb.date;
+
+                // 히스토리 데이터 저장
+                liquidityData.history.dates = rpData.slice(0, 30).reverse().map(d => d.date);
+                liquidityData.history.rp = rpData.slice(0, 30).reverse().map(d => d.value === '.' ? null : parseFloat(d.value));
+                liquidityData.history.rrp = rrpData.slice(0, 30).reverse().map(d => d.value === '.' ? null : parseFloat(d.value));
+                
+                liquidityData.history.spread = [];
+                for (let i = 0; i < 30; i++) {
+                    const s = sofrData[i] && sofrData[i].value !== '.' ? parseFloat(sofrData[i].value) : null;
+                    const io = iorbData[i] && iorbData[i].value !== '.' ? parseFloat(iorbData[i].value) : null;
+                    if (s !== null && io !== null) {
+                        liquidityData.history.spread.push((s - io) * 100);
+                    } else {
+                        liquidityData.history.spread.push(null);
+                    }
+                }
+                liquidityData.history.spread.reverse();
+
+                updateMetricsDisplay();
+                updateStatusDisplay();
+                updateChart();
+
+                document.getElementById('errorDisplay').innerHTML = 
+                    `<div class="success">✅ 성공적으로 실시간 데이터를 로드했습니다!</div>`;
+
+                addMessage('✅ 실시간 데이터가 성공적으로 로드되었습니다! 최신 수치는 위 패널을 확인하세요.', 'bot');
+
+            } catch (error) {
+                console.error('Data loading error:', error);
+                showError(`데이터 로드 실패: ${error.message}<br><br>` +
+                         `<strong>해결 방법:</strong><br>` +
+                         `1. 다른 프록시 방법 선택<br>` +
+                         `2. 브라우저 확장 프로그램 비활성화<br>` +
+                         `3. "데모 모드" 버튼으로 샘플 데이터 확인<br>` +
+                         `4. 로컬 서버로 파일 실행 (python -m http.server)`);
+                
+                addMessage('❌ 데이터 로드 실패. 데모 모드를 시도해보세요.', 'bot');
+            }
+        }
+
+        function useDemoMode() {
+            demoMode = true;
+            addMessage('📊 데모 모드로 전환되었습니다. 실제와 유사한 샘플 데이터를 표시합니다.', 'bot');
+            loadData();
+        }
+
+        function showError(message) {
+            document.getElementById('errorDisplay').innerHTML = 
+                `<div class="error"><strong>❌ 오류:</strong><br>${message}</div>`;
+        }
+
+        function clearMessages() {
+            document.getElementById('errorDisplay').innerHTML = '';
+        }
+
+        // 지표 표시 업데이트
+        function updateMetricsDisplay() {
+            const html = `
+                <div class="metric-card">
+                    <div class="metric-label">RP (환매조건부채권)</div>
+                    <div class="metric-value">$${liquidityData.rp.toFixed(2)}B</div>
+                    <div class="metric-date">📅 ${liquidityData.dates.rp}</div>
+                    <span class="metric-status ${liquidityData.rp > 30 ? 'status-warning' : 'status-normal'}">
+                        ${liquidityData.rp > 30 ? '⚠️ 급증' : '✅ 정상'}
+                    </span>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">RRP (역레포)</div>
+                    <div class="metric-value">$${liquidityData.rrp.toFixed(2)}B</div>
+                    <div class="metric-date">📅 ${liquidityData.dates.rrp}</div>
+                    <span class="metric-status ${liquidityData.rrp < 100 ? 'status-danger' : 'status-normal'}">
+                        ${liquidityData.rrp < 100 ? '🚨 저점' : '✅ 정상'}
+                    </span>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">은행 지준금</div>
+                    <div class="metric-value">$${liquidityData.reserves.toFixed(2)}B</div>
+                    <div class="metric-date">📅 ${liquidityData.dates.reserves}</div>
+                    <span class="metric-status status-normal">✅ 정상</span>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">SOFR - IORB 스프레드</div>
+                    <div class="metric-value">${liquidityData.spread.toFixed(2)} bps</div>
+                    <div class="metric-date">📅 SOFR: ${liquidityData.sofr.toFixed(4)}% | IORB: ${liquidityData.iorb.toFixed(4)}%</div>
+                    <span class="metric-status ${
+                        liquidityData.spread > 100 ? 'status-critical' : 
+                        liquidityData.spread > 20 ? 'status-warning' : 'status-normal'
+                    }">
+                        ${liquidityData.spread > 100 ? '🚨 긴장' : 
+                          liquidityData.spread > 20 ? '⚠️ 경고' : '✅ 정상'}
+                    </span>
+                </div>
+            `;
+            document.getElementById('metricsDisplay').innerHTML = html;
+        }
+
+        // 상태 분석 업데이트
+        function updateStatusDisplay() {
+            let overallStatus = '✅ 정상';
+            let statusClass = 'status-normal';
+            let analysis = '';
+
+            if (liquidityData.spread > 100) {
+                overallStatus = '🚨 유동성 긴장';
+                statusClass = 'status-critical';
+                analysis = `자금 조달 비용이 <strong>${liquidityData.spread.toFixed(2)}bps</strong>로 급등했습니다. 시장 스트레스 징후입니다.`;
+            } else if (liquidityData.spread > 20 || liquidityData.rrp < 100) {
+                overallStatus = '⚠️ 주의 필요';
+                statusClass = 'status-warning';
+                analysis = `유동성 지표에 경고 신호가 나타나고 있습니다. RRP는 <strong>$${liquidityData.rrp.toFixed(2)}B</strong>, 스프레드는 <strong>${liquidityData.spread.toFixed(2)}bps</strong>입니다.`;
+            } else if (liquidityData.rp > 30) {
+                overallStatus = '⚠️ 모니터링';
+                statusClass = 'status-warning';
+                analysis = `RP가 <strong>$${liquidityData.rp.toFixed(2)}B</strong>로 증가하고 있어 단기 자금 수요가 높습니다.`;
+            } else {
+                overallStatus = '✅ 양호';
+                statusClass = 'status-normal';
+                analysis = '모든 유동성 지표가 정상 범위입니다.';
+            }
+
+            const html = `
+                <div class="alert-banner ${statusClass}">
+                    ${overallStatus}
+                </div>
+                <div style="padding: 20px; background: white; border-radius: 10px;">
+                    <h3 style="color: #2a5298; margin-bottom: 15px;">📈 종합 분석</h3>
+                    <p style="line-height: 1.8; color: #495057;">${analysis}</p>
+                    <hr style="margin: 20px 0; border: none; border-top: 1px solid #dee2e6;">
+                    <div style="font-size: 0.9em; color: #6c757d;">
+                        <strong>현재 수치 (${demoMode ? '데모' : '실시간'}):</strong><br>
+                        • RP: $${liquidityData.rp.toFixed(2)}B (경고: >$30B)<br>
+                        • RRP: $${liquidityData.rrp.toFixed(2)}B (경고: <$100B)<br>
+                        • 스프레드: ${liquidityData.spread.toFixed(2)}bps (경고: >20bps, 긴장: >100bps)<br>
+                        • 지준금: $${liquidityData.reserves.toFixed(2)}B
+                    </div>
+                </div>
+            `;
+            document.getElementById('statusDisplay').innerHTML = html;
+        }
+
+        // 차트 업데이트
+        function updateChart() {
+            const ctx = document.getElementById('liquidityChart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: liquidityData.history.dates,
+                    datasets: [
+                        {
+                            label: 'RP ($B)',
+                            data: liquidityData.history.rp,
+                            borderColor: '#20c997',
+                            backgroundColor: 'rgba(32, 201, 151, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'RRP ($B)',
+                            data: liquidityData.history.rrp,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.4,
+                            spanGaps: true
+                        },
+                        {
+                            label: 'SOFR-IORB (bps)',
+                            data: liquidityData.history.spread,
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            yAxisID: 'y1',
+                            tension: 0.4,
+                            spanGaps: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `유동성 지표 30일 추이 (${demoMode ? '데모 데이터' : 'FRED 실시간 데이터'})`,
+                            font: { size: 18, weight: 'bold' }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'RP / RRP (십억달러)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'SOFR-IORB (bps)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 챗봇 질문 처리
+        const qaDatabase = {
+            '현재 유동성 상태': () => {
+                if (!liquidityData.rp) {
+                    return '먼저 데이터를 로드해주세요!';
+                }
+
+                let status = '';
+                if (liquidityData.spread > 100) {
+                    status = `🚨 <strong>유동성 긴장 상태</strong>입니다. SOFR-IORB 스프레드가 <strong>${liquidityData.spread.toFixed(2)}bps</strong>로 100bps를 초과하여 자금 조달 비용이 급등했습니다.`;
+                } else if (liquidityData.spread > 20) {
+                    status = `⚠️ <strong>주의가 필요</strong>한 상태입니다. 스프레드가 <strong>${liquidityData.spread.toFixed(2)}bps</strong>로 경고 수준입니다.`;
+                } else {
+                    status = `✅ <strong>양호한 상태</strong>입니다. RP는 <strong>$${liquidityData.rp.toFixed(2)}B</strong>, RRP는 <strong>$${liquidityData.rrp.toFixed(2)}B</strong>입니다.`;
+                }
+                return status;
+            },
+            'rrp': () => {
+                const current = liquidityData.rrp ? liquidityData.rrp.toFixed(2) : '데이터 없음';
+                return `<strong>RRP (역레포)</strong>는 연준이 시장의 초과 유동성을 흡수하는 도구입니다.<br><br>` +
+                       `📊 현재 RRP: <strong>$${current}B</strong><br><br>` +
+                       `100억 달러 이하로 떨어지면 시장의 현금 부족 신호입니다.`;
+            },
+            '스프레드': () => {
+                const current = liquidityData.spread ? liquidityData.spread.toFixed(2) : '데이터 없음';
+                return `<strong>SOFR-IORB 스프레드</strong>는 시장 자금 조달 비용과 연준 기준금리의 차이입니다.<br><br>` +
+                       `📊 현재: <strong>${current} bps</strong><br>` +
+                       `📊 SOFR: <strong>${liquidityData.sofr ? liquidityData.sofr.toFixed(4) : '-'}%</strong><br>` +
+                       `📊 IORB: <strong>${liquidityData.iorb ? liquidityData.iorb.toFixed(4) : '-'}%</strong>`;
+            },
+            '위기': () => {
+                return `<strong>🚨 유동성 위기 신호:</strong><br><br>` +
+                       `현재 수치:<br>` +
+                       `• RP: $${liquidityData.rp ? liquidityData.rp.toFixed(2) : '-'}B ${liquidityData.rp > 30 ? '⚠️' : '✅'}<br>` +
+                       `• RRP: $${liquidityData.rrp ? liquidityData.rrp.toFixed(2) : '-'}B ${liquidityData.rrp < 100 ? '🚨' : '✅'}<br>` +
+                       `• 스프레드: ${liquidityData.spread ? liquidityData.spread.toFixed(2) : '-'} bps ${liquidityData.spread > 100 ? '🚨' : liquidityData.spread > 20 ? '⚠️' : '✅'}`;
+            },
+            'rp': () => {
+                const current = liquidityData.rp ? liquidityData.rp.toFixed(2) : '데이터 없음';
+                return `<strong>RP (환매조건부채권)</strong>는 연준이 시장에 단기 유동성을 공급하는 도구입니다.<br><br>` +
+                       `📊 현재 RP: <strong>$${current}B</strong>`;
+            }
+        };
+
+        function askQuestion(question) {
+            addMessage(question, 'user');
+            
+            setTimeout(() => {
+                let answer = '';
+                const q = question.toLowerCase();
+                
+                if (q.includes('상태') || q.includes('현재')) {
+                    answer = qaDatabase['현재 유동성 상태']();
+                } else if (q.includes('rrp') || q.includes('역레포')) {
+                    answer = qaDatabase['rrp']();
+                } else if (q.includes('스프레드') || q.includes('sofr')) {
+                    answer = qaDatabase['스프레드']();
+                } else if (q.includes('위기') || q.includes('신호') || q.includes('위험')) {
+                    answer = qaDatabase['위기']();
+                } else if (q.includes('rp') || q.includes('환매')) {
+                    answer = qaDatabase['rp']();
+                } else if (q.includes('지준금') || q.includes('준비금')) {
+                    answer = `<strong>은행 지준금</strong>은 은행들이 연준에 예치한 지급준비금입니다.<br><br>` +
+                             `📊 현재: <strong>$${liquidityData.reserves ? liquidityData.reserves.toFixed(2) : '-'}B</strong>`;
+                } else {
+                    answer = `다음 주제에 대해 물어보세요:<br>` +
+                             `• 현재 유동성 상태<br>` +
+                             `• RP, RRP, 지준금<br>` +
+                             `• SOFR-IORB 스프레드<br>` +
+                             `• 유동성 위기 신호`;
+                }
+                
+                addMessage(answer, 'bot');
+            }, 500);
+        }
+
+        function sendMessage() {
+            const input = document.getElementById('userInput');
+            const question = input.value.trim();
+            
+            if (question) {
+                askQuestion(question);
+                input.value = '';
+            }
+        }
+
+        function addMessage(text, type) {
+            const chatBox = document.getElementById('chatBox');
+            const message = document.createElement('div');
+            message.className = `message ${type}`;
+            message.innerHTML = text;
+            chatBox.appendChild(message);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // 페이지 로드 시 API 키 자동 입력
+        window.addEventListener('load', () => {
+            addMessage('💡 <strong>빠른 시작:</strong> API 키가 이미 입력되어 있습니다. "데이터 로드" 버튼을 클릭하거나, CORS 오류 발생 시 다른 프록시 방법을 선택하거나 "데모 모드" 버튼을 클릭하세요.', 'bot');
+        });
+    </script>
+</body>
+</html>
